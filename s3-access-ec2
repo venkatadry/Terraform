@@ -1,0 +1,76 @@
+Provider block
+---
+provider "aws" {
+  region = "us-east-1"
+}
+
+IAM ROLE
+----
+resource "aws_iam_role" "ec2_s3_access_role" {
+  name = "ec2_s3_access_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow",
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      },
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+IAM Policy
+-----
+
+resource "aws_iam_policy" "s3_access_policy" {
+  name        = "ec2_s3_access_policy"
+  description = "Allow EC2 instance to access S3"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow",
+      Action = [
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      Resource = "*"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "attach_policy" {
+  role       = aws_iam_role.ec2_s3_access_role.name
+  policy_arn = aws_iam_policy.s3_access_policy.arn
+}
+
+
+---
+
+### 🔒 2. IAM Instance Profile
+
+```hcl
+resource "aws_iam_instance_profile" "ec2_profile" {
+  name = "ec2_instance_profile"
+  role = aws_iam_role.ec2_s3_access_role.name
+}
+```
+
+---
+
+### 💻 3. EC2 Instance
+
+```hcl
+resource "aws_instance" "example" {
+  ami           = "ami-0c55b159cbfafe1f0"  # Update this with a valid AMI for your region
+  instance_type = "t2.micro"
+
+  iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
+
+  tags = {
+    Name = "EC2WithS3Access"
+  }
+}
